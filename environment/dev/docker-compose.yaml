@@ -1,0 +1,51 @@
+version: "3.8"
+
+x-logging:
+  &default-logging
+  driver: "json-file"
+  options:
+    max-size: "25m"
+    max-file: '2'
+
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: ./environment/dev/Dockerfile
+    command: ["/bin/bash", "/app/entrypoint.sh"]
+    env_file:
+      - dev.env
+    environment:
+      WORKER_COUNT: 2
+    ports:
+      - "8000:80"
+    depends_on:
+      database:
+        condition: service_healthy
+    logging: *default-logging
+    healthcheck:
+      test: "wget --no-verbose --tries=5 --spider http://localhost/docs || exit 1"
+      interval: 20s
+      timeout: 5s
+      retries: 2
+
+
+
+  database:
+    image: postgres:13.3
+    env_file:
+      - dev.env
+    logging: *default-logging
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - "25432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
